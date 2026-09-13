@@ -1,12 +1,13 @@
 // Demo data source: everything lives in memory and resets on reload.
-import { ATTENDANCE_TODAY, FOLLOWUP_LIST, STUDENTS } from "../data/dummy.js";
-import { todayISO } from "./shared.js";
+import { ATTENDANCE_TODAY, FOLLOWUP_LIST, ISSUES, STUDENTS } from "../data/dummy.js";
+import { formatDate, todayISO } from "./shared.js";
 
 let user = null;
 const listeners = new Set();
 const students = STUDENTS.map((s) => ({ ...s, id: String(s.id) }));
 const attendance = { [todayISO()]: Object.fromEntries(Object.entries(ATTENDANCE_TODAY).map(([k, v]) => [String(k), v])) };
 let nextId = 100;
+const issues = ISSUES.map((i) => ({ ...i, id: String(i.id), photoUrl: null }));
 
 const notify = () => listeners.forEach((fn) => fn(user));
 
@@ -47,12 +48,25 @@ export const demoApi = {
     }));
   },
 
+  async listIssues() { return issues.slice(); },
+  async addIssue({ category, desc, priority, photo }) {
+    issues.unshift({
+      id: String(nextId++), category, desc: desc.trim(), priority, status: "Open",
+      date: formatDate(todayISO()), photoUrl: photo ? URL.createObjectURL(photo) : null,
+    });
+  },
+  async updateIssueStatus(id, status) {
+    const i = issues.find((x) => x.id === id);
+    if (i) i.status = status;
+  },
+
   async getStats() {
     const today = attendance[todayISO()] || {};
     return {
       total: students.filter((s) => s.active).length,
       presentToday: Object.values(today).filter((v) => v === "Present").length,
       followup: FOLLOWUP_LIST.length,
+      openIssues: issues.filter((i) => i.status !== "Resolved").length,
     };
   },
 };

@@ -35,6 +35,7 @@ function unwrap({ data, error }) {
   return data;
 }
 
+const BUCKET = "issue-photos";
 let cachedUser = null;
 
 async function loadUser() {
@@ -132,14 +133,42 @@ export const liveApi = {
     }));
   },
 
+  async listIssues() {
+    const rows = unwrap(await supabase.from("issues").select("*").order("created_at", { ascending: false }));
+    const paths = rows.map((r) => r.photo_path).filter(Boolean);
+    let urls = {};
+    if (paths.length) {
+      const { data } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 60 * 60);
+      (data || []).forEach((d, i) => { if (d.signedUrl) urls[paths[i]] = d.signedUrl; });
+    }
+    return rows.map((r) => ({
+      id: r.id, category: r.category, desc: r.description, priority: r.priority, status: r.status,
+      date: formatDate(r.created_at.slice(0, 10)), photoUrl: r.photo_path ? urls[r.photo_path] || null : null,
+    }));
+  },
+  async addIssue({ category, desc, priority, photo }) {
+    let photo_path = null;
+    if (photo) {
+      photo_path = `${cachedUser.school.id}/${crypto.randomUUID()}.jpg`;
+      unwrap(await supabase.storage.from(BUCKET).upload(photo_path, photo, { contentType: "image/jpeg", upsert: false }));
+    }
+    unwrap(await supabase.from("issues").insert({
+      school_id: cachedUser.school.id, category, description: desc.trim(), priority, photo_path, reported_by: cachedUser.id,
+    }));
+  },
+  async updateIssueStatus(id, status) {
+    unwrap(await supabase.from("issues").update({ status, updated_at: new Date().toISOString() }).eq("id", id));
+  },
+
   async getStats() {
     const today = new Date().toISOString().slice(0, 10);
-    const [students, present, followup] = await Promise.all([
+    const [students, present, followup, issues] = await Promise.all([
       supabase.from("students").select("id", { count: "exact", head: true }).eq("active", true),
       supabase.from("attendance").select("id", { count: "exact", head: true }).eq("date", today).eq("status", "Present"),
       supabase.from("followup_students").select("id", { count: "exact", head: true }),
+      supabase.from("issues").select("id", { count: "exact", head: true }).neq("status", "Resolved"),
     ]);
-    [students, present, followup].forEach((r) => { if (r.error) throw r.error; });
-    return { total: students.count || 0, presentToday: present.count || 0, followup: followup.count || 0 };
+    [students, present, followup, issues].forEach((r) => { if (r.error) throw r.error; });
+    return { total: students.count || 0, presentToday: present.count || 0, followup: followup.count || 0, openIssues: issues.count || 0 };
   },
 };

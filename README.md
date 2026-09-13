@@ -12,9 +12,9 @@ Open the published app link and tap a role. On a phone, use the browser menu
 and choose **Add to Home Screen** to get an app icon. After the first load it
 also opens offline.
 
-Every push to `main` publishes the app to GitHub Pages automatically
-(see `.github/workflows/deploy.yml`). The Pages link appears under the
-repository's **Settings → Pages** once the first deploy has run.
+Every push to `main` builds the app and publishes it to the `gh-pages`
+branch (see `.github/workflows/deploy.yml`), which GitHub Pages serves at
+https://wahengbambungosingh.github.io/sandhong-school-staff-app/
 
 ## Run it on a computer
 

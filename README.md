@@ -6,7 +6,17 @@ Internal staff management app for Sandhong Upper Primary School.
 there is no real login, and no messages are sent automatically. The app is
 built mobile-first for staff phones.
 
-## Run it
+## Use it without installing anything
+
+Open the published app link and tap a role. On a phone, use the browser menu
+and choose **Add to Home Screen** to get an app icon. After the first load it
+also opens offline.
+
+Every push to `main` publishes the app to GitHub Pages automatically
+(see `.github/workflows/deploy.yml`). The Pages link appears under the
+repository's **Settings → Pages** once the first deploy has run.
+
+## Run it on a computer
 
 ```bash
 npm install

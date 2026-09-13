@@ -1,5 +1,5 @@
 import { MessageCircle } from "lucide-react";
-import { BigButton, Card } from "../components/ui.jsx";
+import { BigButton, Card, SampleBanner } from "../components/ui.jsx";
 import { COLORS, fieldClass, fieldStyle } from "../theme.js";
 import { CONTACT_LOG, STUDENTS } from "../data/dummy.js";
 
@@ -8,6 +8,7 @@ export default function ContactLogScreen() {
   const waText = encodeURIComponent(`Hello, this is regarding ${student.name}'s attendance at Sandhong Upper Primary School.`);
   return (
     <div className="p-4 space-y-4">
+      <SampleBanner />
       <Card>
         <p className="font-bold mb-1" style={{ color: COLORS.ink }}>{student.name}</p>
         <p className="text-xs text-gray-500 mb-3">Guardian: {student.guardian} · {student.phone}</p>

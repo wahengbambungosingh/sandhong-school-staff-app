@@ -1,4 +1,4 @@
-import { Card } from "../components/ui.jsx";
+import { Card, SampleBanner } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
 import { CLASSES, SECTIONS, SUBJECTS } from "../data/dummy.js";
 
@@ -9,6 +9,7 @@ function Chip({ children }) {
 export default function SchoolSetupScreen() {
   return (
     <div className="p-4 space-y-4">
+      <SampleBanner />
       <Card>
         <p className="font-bold text-sm mb-1" style={{ color: COLORS.ink }}>Academic year</p>
         <p className="text-sm text-gray-600">2026–2027 (dummy)</p>

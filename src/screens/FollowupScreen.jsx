@@ -1,8 +1,11 @@
-import { Card } from "../components/ui.jsx";
+import { Card, ErrorNote, Loading } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
-import { FOLLOWUP_LIST } from "../data/dummy.js";
+import { api } from "../lib/api.js";
+import { useAsync } from "../lib/useAsync.js";
+import { errorMessage } from "../lib/shared.js";
 
 export default function FollowupScreen() {
+  const { loading, data, error, reload } = useAsync(() => api.listFollowup());
   return (
     <div className="p-4 space-y-3">
       <Card style={{ background: "#FBE4E1", borderColor: "#F3C9C3" }}>
@@ -10,7 +13,10 @@ export default function FollowupScreen() {
           Rule: 3+ absences in the last 7 days, or 7+ absences in the last 30 days.
         </p>
       </Card>
-      {FOLLOWUP_LIST.map((f) => (
+      <ErrorNote message={error && errorMessage(error)} onRetry={reload} />
+      {loading && <Loading />}
+      {!loading && !error && data?.length === 0 && <p className="text-sm text-gray-500 px-1">No students need a follow-up right now.</p>}
+      {(data || []).map((f) => (
         <Card key={f.id}>
           <p className="font-bold" style={{ color: COLORS.ink }}>{f.name}</p>
           <p className="text-xs text-gray-500 mb-2">{f.cls} · Section {f.sec}</p>

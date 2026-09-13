@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BackLink, Card } from "../components/ui.jsx";
+import { BackLink, Card, SampleBanner } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
 import { ASSESSMENTS } from "../data/dummy.js";
 
@@ -9,6 +9,7 @@ export default function AssessmentsScreen() {
     const a = selected;
     return (
       <div className="p-4 space-y-3">
+      <SampleBanner />
         <BackLink onClick={() => setSelected(null)}>Back to assessments</BackLink>
         <Card>
           <p className="font-bold" style={{ color: COLORS.ink }}>{a.title}</p>
@@ -25,6 +26,7 @@ export default function AssessmentsScreen() {
   }
   return (
     <div className="p-4 space-y-3">
+      <SampleBanner />
       {ASSESSMENTS.map((a) => (
         <button key={a.id} onClick={() => setSelected(a)} className="block w-full text-left">
           <Card>

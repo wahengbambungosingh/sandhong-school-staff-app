@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { BigButton, Card, StatusPill } from "../components/ui.jsx";
+import { BigButton, Card, SampleBanner, StatusPill } from "../components/ui.jsx";
 import { COLORS, fieldClass, fieldStyle } from "../theme.js";
 import { ISSUE_CATEGORIES, ISSUES } from "../data/dummy.js";
 
@@ -8,6 +8,7 @@ export default function IssuesScreen() {
   const [showForm, setShowForm] = useState(false);
   return (
     <div className="p-4 space-y-3">
+      <SampleBanner />
       <BigButton icon={Plus} onClick={() => setShowForm(!showForm)}>{showForm ? "Close form" : "Report an issue"}</BigButton>
       {showForm && (
         <Card className="space-y-2">

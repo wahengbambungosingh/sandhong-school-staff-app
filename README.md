@@ -69,6 +69,9 @@ Saved to the database:
 - Follow-up Needed (3+ absences in 7 days, or 7+ in 30 days), computed from
   real attendance
 - Fees Status (Paid / Pending per student)
+- School Issues: report with category, priority and an optional photo
+  (camera or gallery, shrunk on the phone before upload, stored in a
+  private Supabase Storage bucket); management roles change the status
 - Dashboard counts and the Reports summary
 
 Still sample data (next stage):
@@ -80,7 +83,6 @@ Still sample data (next stage):
   guardian has given consent
 - Homework / Classwork
 - Assessments & Marks
-- School Issues
 
 ## Stack
 
@@ -111,4 +113,4 @@ src/
   homework, marks and school issues saved to the database
 - Then: principal can change staff roles, new-school sign-up page,
   pricing and privacy pages on the public website
-- Later: photo attachments on issues, more report types
+- Later: more report types

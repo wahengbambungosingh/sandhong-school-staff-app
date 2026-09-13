@@ -1,15 +1,14 @@
 import { Printer } from "lucide-react";
 import { BigButton, Card, ErrorNote, Loading } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
-import { ISSUES } from "../data/dummy.js";
-import { api, IS_LIVE } from "../lib/api.js";
+import { api } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage, formatDate, todayISO } from "../lib/shared.js";
 
 export default function ReportsScreen({ user }) {
   const { loading, data, error, reload } = useAsync(async () => {
-    const [stats, followup] = await Promise.all([api.getStats(), api.listFollowup()]);
-    return { stats, followup };
+    const [stats, followup, issues] = await Promise.all([api.getStats(), api.listFollowup(), api.listIssues()]);
+    return { stats, followup, issues };
   });
   const pct = data && data.stats.total ? Math.round((data.stats.presentToday / data.stats.total) * 100) : 0;
   return (
@@ -31,9 +30,9 @@ export default function ReportsScreen({ user }) {
             ))}
           </Card>
           <Card className="mt-3">
-            <p className="font-bold mb-2" style={{ color: COLORS.ink }}>School issues by status{IS_LIVE ? " (sample)" : ""}</p>
+            <p className="font-bold mb-2" style={{ color: COLORS.ink }}>School issues by status</p>
             {["Open", "In Progress", "Resolved"].map((st) => (
-              <p key={st} className="text-sm py-1">{st}: {ISSUES.filter((i) => i.status === st).length}</p>
+              <p key={st} className="text-sm py-1">{st}: {data.issues.filter((i) => i.status === st).length}</p>
             ))}
           </Card>
         </div>

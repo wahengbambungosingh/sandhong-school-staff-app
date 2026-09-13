@@ -205,3 +205,52 @@ grant execute on function public.current_school_id() to authenticated;
 grant execute on function public.current_staff_role() to authenticated;
 grant execute on function public.create_school(text, text) to authenticated;
 grant execute on function public.join_school(text, text) to authenticated;
+
+-- =============================================================================
+-- Stage 2a: School issues with photos
+-- =============================================================================
+
+create table if not exists public.issues (
+  id           uuid primary key default gen_random_uuid(),
+  school_id    uuid not null references public.schools (id) on delete cascade,
+  category     text not null,
+  description  text not null,
+  priority     text not null default 'Low' check (priority in ('Low', 'Medium', 'High')),
+  status       text not null default 'Open' check (status in ('Open', 'In Progress', 'Resolved')),
+  photo_path   text,
+  reported_by  uuid references public.profiles (id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists issues_school_created_idx on public.issues (school_id, created_at desc);
+
+alter table public.issues enable row level security;
+
+drop policy if exists issues_all on public.issues;
+create policy issues_all on public.issues
+  for all to authenticated
+  using (school_id = public.current_school_id())
+  with check (school_id = public.current_school_id());
+
+grant select, insert, update, delete on public.issues to authenticated;
+
+-- Private photo bucket. Files are stored under <school_id>/<file>, and the
+-- policies below only let staff touch files inside their own school's folder.
+insert into storage.buckets (id, name, public)
+  values ('issue-photos', 'issue-photos', false)
+  on conflict (id) do nothing;
+
+drop policy if exists issue_photos_select on storage.objects;
+create policy issue_photos_select on storage.objects
+  for select to authenticated
+  using (bucket_id = 'issue-photos' and (storage.foldername(name))[1] = public.current_school_id()::text);
+
+drop policy if exists issue_photos_insert on storage.objects;
+create policy issue_photos_insert on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'issue-photos' and (storage.foldername(name))[1] = public.current_school_id()::text);
+
+drop policy if exists issue_photos_delete on storage.objects;
+create policy issue_photos_delete on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'issue-photos' and (storage.foldername(name))[1] = public.current_school_id()::text);

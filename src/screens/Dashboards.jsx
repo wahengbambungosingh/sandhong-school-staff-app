@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { BigButton, Card, ErrorNote, Tile } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
-import { CLASSES, ISSUES, TEACHERS } from "../data/dummy.js";
+import { CLASSES, TEACHERS } from "../data/dummy.js";
 import { api, IS_LIVE } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage } from "../lib/shared.js";
@@ -37,7 +37,6 @@ function JoinCodeCard({ user }) {
 
 export function PrincipalDashboard({ nav, user }) {
   const { data, error, reload } = useAsync(() => api.getStats());
-  const openIssues = ISSUES.filter((i) => i.status !== "Resolved").length;
   return (
     <div className="p-4 space-y-4">
       <ErrorNote message={error && errorMessage(error)} onRetry={reload} />
@@ -45,7 +44,7 @@ export function PrincipalDashboard({ nav, user }) {
         <Stat label="Total students" value={data?.total} color={COLORS.header} />
         <Stat label="Present today" value={data ? `${data.presentToday}/${data.total}` : undefined} color={COLORS.header} />
         <Stat label="Follow-up needed" value={data?.followup} color={COLORS.alert} />
-        <Stat label="Open issues" value={openIssues} color={COLORS.alert} />
+        <Stat label="Open issues" value={data?.openIssues} color={COLORS.alert} />
       </div>
       <JoinCodeCard user={user} />
       <p className="font-bold text-sm px-1" style={{ color: COLORS.ink }}>School management</p>
@@ -59,7 +58,7 @@ export function PrincipalDashboard({ nav, user }) {
         <Tile icon={MessageCircle} label="Parent Contact Log" onClick={() => nav("contact")} />
         <Tile icon={BookOpen} label="Homework" onClick={() => nav("homework")} />
         <Tile icon={ClipboardList} label="Assessments & Marks" onClick={() => nav("assessments")} />
-        <Tile icon={Wrench} label="School Issues" onClick={() => nav("issues")} badge={openIssues} />
+        <Tile icon={Wrench} label="School Issues" onClick={() => nav("issues")} badge={data?.openIssues || undefined} />
         <Tile icon={FileText} label="Reports" onClick={() => nav("reports")} />
       </div>
     </div>

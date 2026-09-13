@@ -43,9 +43,10 @@ Other scripts:
 1. Create a project at https://supabase.com.
 2. Open **SQL Editor → New query**, paste the contents of
    `supabase/schema.sql`, and click **Run**. Safe to run again later.
-3. Under **Authentication → Providers → Email**, turn off
-   "Confirm email" if you want staff to sign in immediately after
-   creating an account. Leave it on to require an email confirmation.
+3. Under **Authentication → URL Configuration**, set **Site URL** to the
+   address where the app is published and add the same address under
+   **Redirect URLs**. Email confirmation links then return people to the
+   app, signed in. Keep "Confirm email" on under Providers → Email.
 4. Put the project's URL and `anon` key in `src/config.js` (or in a
    `.env` file, see `.env.example`).
 

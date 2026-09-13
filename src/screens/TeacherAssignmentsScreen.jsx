@@ -1,10 +1,11 @@
-import { Card } from "../components/ui.jsx";
+import { Card, SampleBanner } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
 import { TEACHERS } from "../data/dummy.js";
 
 export default function TeacherAssignmentsScreen() {
   return (
     <div className="p-4 space-y-3">
+      <SampleBanner />
       {TEACHERS.map((t) => (
         <Card key={t.id}>
           <p className="font-bold" style={{ color: COLORS.ink }}>{t.name}</p>

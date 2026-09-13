@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
-import { TopBar } from "./components/ui.jsx";
+import { Loading, TopBar } from "./components/ui.jsx";
 import { COLORS } from "./theme.js";
+import { api, IS_LIVE } from "./lib/api.js";
+import { MANAGEMENT_ROLES, ROLE_LABELS } from "./lib/shared.js";
 import LoginScreen from "./screens/LoginScreen.jsx";
+import OnboardingScreen from "./screens/OnboardingScreen.jsx";
 import { PrincipalDashboard, TeacherDashboard } from "./screens/Dashboards.jsx";
 import StudentRegisterScreen from "./screens/StudentRegisterScreen.jsx";
 import SchoolSetupScreen from "./screens/SchoolSetupScreen.jsx";
@@ -30,49 +33,50 @@ const SCREENS = {
   reports: { title: "Reports", Component: ReportsScreen },
 };
 
-const MANAGEMENT_ROLES = ["Principal", "Office Admin", "Technical Admin"];
-
 export default function App() {
-  const [role, setRole] = useState(null);
+  const [user, setUser] = useState(null);
+  const [ready, setReady] = useState(!IS_LIVE);
   const [screen, setScreen] = useState("dashboard");
 
-  if (!role) {
-    return (
-      <LoginScreen
-        onLogin={(r) => {
-          setRole(r);
-          setScreen("dashboard");
-        }}
-      />
-    );
-  }
+  useEffect(() => {
+    let active = true;
+    api.getUser().then((u) => { if (active) { setUser(u); setReady(true); } }).catch(() => { if (active) setReady(true); });
+    const unsubscribe = api.onAuthChange((u) => { if (active) { setUser(u); setScreen("dashboard"); } });
+    return () => { active = false; unsubscribe(); };
+  }, []);
 
-  const nav = (s) => {
-    setScreen(s);
-    window.scrollTo(0, 0);
-  };
+  if (!ready) {
+    return <div className="min-h-screen max-w-md mx-auto" style={{ background: COLORS.bg }}><Loading label="Starting…" /></div>;
+  }
+  if (!user) return <LoginScreen />;
+  if (user.needsSchool) return <OnboardingScreen email={user.email} />;
+
+  const nav = (s) => { setScreen(s); window.scrollTo(0, 0); };
   const goHome = () => nav("dashboard");
+  const roleLabel = ROLE_LABELS[user.role] || user.role;
+  const firstName = user.fullName ? user.fullName.split(" ")[0] : roleLabel;
 
   const current = SCREENS[screen];
   let body;
   if (current) {
     const { Component } = current;
-    body = <Component nav={nav} />;
+    body = <Component nav={nav} user={user} />;
   } else {
-    body = MANAGEMENT_ROLES.includes(role) ? <PrincipalDashboard nav={nav} /> : <TeacherDashboard nav={nav} />;
+    body = MANAGEMENT_ROLES.includes(user.role) ? <PrincipalDashboard nav={nav} user={user} /> : <TeacherDashboard nav={nav} user={user} />;
   }
 
   return (
     <div className="min-h-screen max-w-md mx-auto" style={{ background: COLORS.bg }}>
       <TopBar
-        title={current ? current.title : `Hello, ${role}`}
+        title={current ? current.title : `Hello, ${firstName}`}
         onBack={current ? goHome : null}
-        role={role}
+        role={roleLabel}
+        schoolName={user.school?.name}
       />
       {body}
       <div className="p-4 pt-0 print:hidden">
-        <button onClick={() => setRole(null)} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-gray-400 py-3">
-          <LogOut size={14} /> Log out of demo
+        <button onClick={() => api.signOut()} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-gray-400 py-3">
+          <LogOut size={14} /> {IS_LIVE ? "Sign out" : "Log out of demo"}
         </button>
       </div>
     </div>

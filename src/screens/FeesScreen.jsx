@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Card, StatusPill } from "../components/ui.jsx";
+import { Card, ErrorNote, Loading, StatusPill } from "../components/ui.jsx";
 import { COLORS, fieldStyle } from "../theme.js";
-import { CLASSES, STUDENTS } from "../data/dummy.js";
+import { CLASSES } from "../data/dummy.js";
+import { api } from "../lib/api.js";
+import { useAsync } from "../lib/useAsync.js";
+import { errorMessage } from "../lib/shared.js";
 
 export default function FeesScreen() {
   const [filterCls, setFilterCls] = useState("All");
-  const list = STUDENTS.filter((s) => filterCls === "All" || s.cls === filterCls);
+  const { loading, data, error, reload } = useAsync(() => api.listStudents());
+  const list = (data || []).filter((s) => s.active && (filterCls === "All" || s.cls === filterCls));
   const paidCount = list.filter((s) => s.fee === "Paid").length;
   const pendingCount = list.filter((s) => s.fee === "Pending").length;
 
@@ -19,6 +23,8 @@ export default function FeesScreen() {
         <option>All</option>
         {CLASSES.map((c) => <option key={c}>{c}</option>)}
       </select>
+      <ErrorNote message={error && errorMessage(error)} onRetry={reload} />
+      {loading && <Loading />}
       {list.map((s) => (
         <Card key={s.id} className="flex items-center justify-between">
           <div>
@@ -28,7 +34,7 @@ export default function FeesScreen() {
           <StatusPill status={s.fee} />
         </Card>
       ))}
-      <p className="text-xs text-gray-500 px-1">Status only, no amounts, no payment collection or UPI in this prototype.</p>
+      <p className="text-xs text-gray-500 px-1">Change a student's fee status from their page in the Student Register.</p>
     </div>
   );
 }

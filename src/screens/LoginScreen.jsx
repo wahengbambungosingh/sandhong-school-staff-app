@@ -66,7 +66,7 @@ function LiveLogin() {
         if (password.length < 8) throw new Error("Password must be at least 8 characters.");
         const { needsEmailConfirmation } = await api.signUp(email, password);
         if (needsEmailConfirmation) {
-          setNotice("Account created. Check your email for a confirmation link, then sign in here.");
+          setNotice("Account created. Open the confirmation link we emailed you. It brings you back here, signed in.");
           setMode("signin");
         }
       }

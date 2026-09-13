@@ -75,7 +75,9 @@ export const liveApi = {
     return loadUser();
   },
   async signUp(email, password) {
-    const data = unwrap(await supabase.auth.signUp({ email: email.trim(), password }));
+    // Send the confirmation link back to this app, so the person lands here signed in.
+    const emailRedirectTo = window.location.origin + window.location.pathname;
+    const data = unwrap(await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo } }));
     // When email confirmation is on, there is no session yet.
     return { needsEmailConfirmation: !data.session };
   },

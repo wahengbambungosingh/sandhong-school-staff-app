@@ -2,17 +2,18 @@ import { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { BigButton, Card, ErrorNote, Loading } from "../components/ui.jsx";
 import { COLORS, fieldStyle } from "../theme.js";
-import { CLASSES, SECTIONS } from "../data/dummy.js";
 import { api } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage, todayISO } from "../lib/shared.js";
 
 const OPTIONS = ["Present", "Absent", "Leave", "Late"];
 
-export default function AttendanceScreen() {
+export default function AttendanceScreen({ user }) {
+  const CLASSES = user.school.classes;
+  const SECTIONS = user.school.sections;
   const [date, setDate] = useState(todayISO());
-  const [cls, setCls] = useState("Class 4");
-  const [sec, setSec] = useState("A");
+  const [cls, setCls] = useState(api.mode === "demo" ? "Class 4" : CLASSES[0] || "");
+  const [sec, setSec] = useState(SECTIONS[0] || "A");
   const [marks, setMarks] = useState({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);

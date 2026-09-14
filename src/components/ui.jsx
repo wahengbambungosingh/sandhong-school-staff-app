@@ -40,16 +40,6 @@ export function ModeBadge({ className = "", schoolName }) {
   );
 }
 
-/** Shown on screens that still use sample data when the app is live. */
-export function SampleBanner() {
-  if (!IS_LIVE) return null;
-  return (
-    <div className="rounded-xl px-3 py-2 text-xs font-semibold" style={{ background: "#FCEFD9", color: "#93650F" }}>
-      Sample data. Saving for this screen arrives in the next stage.
-    </div>
-  );
-}
-
 export function Loading({ label = "Loading…" }) {
   return (
     <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500">

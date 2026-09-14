@@ -3,9 +3,8 @@
 Internal staff management app for Sandhong Upper Primary School.
 
 Mobile-first web app for staff phones. Staff sign in with email and
-password, each school has its own private space, and students and daily
-attendance are saved to a Supabase database. Screens not yet connected to
-the database show sample data and say so.
+password, each school has its own private space, and everything is saved
+to a Supabase database.
 
 A separate **demo build** runs entirely on sample data with no login.
 
@@ -51,38 +50,33 @@ Other scripts:
    `.env` file, see `.env.example`).
 
 The first person to create an account sets up the school and becomes
-its principal. The principal's dashboard shows a **join code** that other
-staff enter when they create their accounts.
+its principal. The **Staff** screen shows a **join code** that other staff
+enter when they create their accounts; the principal can change roles,
+remove staff, and issue a new code. "Forgot password?" on the sign-in
+screen emails a reset link that returns to the app.
 
-## What is saved today
+## What is saved
 
-Roles: Principal, Teacher, Office Admin, Technical Admin. Principal and the
-two admin roles see the management dashboard. Teachers see a simpler
-dashboard with attendance first.
-
-Saved to the database:
-
-- Staff accounts, schools, roles, join codes
+- Staff accounts, schools, roles, join codes, password reset
+- School Setup: academic year, classes, sections, subjects (feed every
+  class/section/subject picker in the app)
+- Teacher Assignments: which staff member teaches which class and subject;
+  teachers see their own list on the dashboard
 - Student Register: add, edit, class filter, detail view, WhatsApp consent,
   fee status, active/inactive
 - Daily Attendance by date, class and section (Present / Absent / Leave / Late)
-- Follow-up Needed (3+ absences in 7 days, or 7+ in 30 days), computed from
-  real attendance
-- Fees Status (Paid / Pending per student)
+- Follow-up Needed: every student with recent absences; flagged at 3+ in
+  7 days or 7+ in 30 days
+- Parent Contact Log per student: call and WhatsApp buttons (WhatsApp only
+  with consent), logged contacts with type, outcome and note
+- Homework by class, section and subject with due date
+- Assessments & Marks: create an assessment, enter marks per student,
+  marks under 40% highlighted
 - School Issues: report with category, priority and an optional photo
   (camera or gallery, shrunk on the phone before upload, stored in a
   private Supabase Storage bucket); management roles change the status
+- Fees Status (Paid / Pending per student)
 - Dashboard counts and the Reports summary
-
-Still sample data (next stage):
-
-- School Setup (academic year, classes, sections, subjects)
-- School Setup (academic year, classes, sections, subjects — read-only)
-- Teacher Assignments
-- Parent Contact Log with a manual "Open WhatsApp" link, shown only when the
-  guardian has given consent
-- Homework / Classwork
-- Assessments & Marks
 
 ## Stack
 
@@ -109,8 +103,6 @@ src/
 
 ## Roadmap
 
-- Next: editable school setup, teacher assignments, parent contact log,
-  homework, marks and school issues saved to the database
-- Then: principal can change staff roles, new-school sign-up page,
-  pricing and privacy pages on the public website
-- Later: more report types
+- Custom email sender (Supabase's built-in one is rate-limited)
+- Own domain, privacy policy and terms, pricing page, new-school sign-up
+- Backups, more report types

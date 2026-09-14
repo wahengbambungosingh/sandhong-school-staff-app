@@ -1,10 +1,9 @@
 import {
   AlertTriangle, BookOpen, CalendarCheck, ClipboardList, Copy, FileText, IndianRupee,
-  MessageCircle, Settings, UserCog, Users, Wrench,
+  MessageCircle, Settings, UserCog, Users, UsersRound, Wrench,
 } from "lucide-react";
 import { BigButton, Card, ErrorNote, Tile } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
-import { CLASSES, TEACHERS } from "../data/dummy.js";
 import { api, IS_LIVE } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage } from "../lib/shared.js";
@@ -53,6 +52,7 @@ export function PrincipalDashboard({ nav, user }) {
         <Tile icon={CalendarCheck} label="Daily Attendance" onClick={() => nav("attendance")} />
         <Tile icon={AlertTriangle} label="Follow-up Needed" onClick={() => nav("followup")} badge={data?.followup || undefined} />
         <Tile icon={IndianRupee} label="Fees Status" onClick={() => nav("fees")} />
+        <Tile icon={UsersRound} label="Staff" onClick={() => nav("staff")} />
         <Tile icon={UserCog} label="Teacher Assignments" onClick={() => nav("assignments")} />
         <Tile icon={Settings} label="School Setup" onClick={() => nav("setup")} />
         <Tile icon={MessageCircle} label="Parent Contact Log" onClick={() => nav("contact")} />
@@ -67,21 +67,17 @@ export function PrincipalDashboard({ nav, user }) {
 
 export function TeacherDashboard({ nav }) {
   const stats = useAsync(() => api.getStats());
-  const students = useAsync(() => api.listStudents());
-  const liveClasses = [...new Set((students.data || []).filter((s) => s.active).map((s) => `${s.cls} ${s.sec}`))]
-    .sort((a, b) => CLASSES.indexOf(a.split(" ").slice(0, -1).join(" ")) - CLASSES.indexOf(b.split(" ").slice(0, -1).join(" ")) || a.localeCompare(b));
+  const mine = useAsync(() => api.listMyAssignments());
   return (
     <div className="p-4 space-y-4">
       <BigButton icon={CalendarCheck} onClick={() => nav("attendance")}>Mark Attendance</BigButton>
       <Card>
-        <p className="font-bold text-sm mb-2" style={{ color: COLORS.ink }}>{IS_LIVE ? "Classes with students" : "My classes today"}</p>
-        {IS_LIVE
-          ? (liveClasses.length ? liveClasses : ["No students added yet"]).map((c) => (
-              <div key={c} className="py-2 border-t first:border-t-0 text-sm" style={{ borderColor: "#EEE" }}>{c}</div>
-            ))
-          : TEACHERS[0].assignments.map((a, i) => (
-              <div key={i} className="py-2 border-t first:border-t-0 text-sm" style={{ borderColor: "#EEE" }}>{a.cls} {a.sec} · {a.subject}</div>
-            ))}
+        <p className="font-bold text-sm mb-2" style={{ color: COLORS.ink }}>My classes</p>
+        {mine.loading && <p className="text-sm text-gray-400">Loading…</p>}
+        {!mine.loading && (mine.data || []).length === 0 && <p className="text-sm text-gray-400">No classes assigned yet. Ask your principal.</p>}
+        {(mine.data || []).map((a) => (
+          <div key={a.id} className="py-2 border-t first:border-t-0 text-sm" style={{ borderColor: "#EEE" }}>{a.cls} {a.sec} · {a.subject}</div>
+        ))}
       </Card>
       <div className="grid grid-cols-2 gap-3">
         <Tile icon={AlertTriangle} label="Follow-up Needed" onClick={() => nav("followup")} badge={stats.data?.followup || undefined} />

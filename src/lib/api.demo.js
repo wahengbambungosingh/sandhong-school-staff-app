@@ -42,10 +42,15 @@ export const demoApi = {
   },
 
   async listFollowup() {
-    return FOLLOWUP_LIST.map((f) => ({
+    const flagged = FOLLOWUP_LIST.map((f) => ({
       id: String(f.id), name: f.name, cls: f.cls, sec: f.sec,
-      absentLast7: f.absentLast7, absentLast30: f.absentLast30, dates: f.dates,
+      absentLast7: f.absentLast7, absentLast30: f.absentLast30, dates: f.dates, needsFollowup: true,
     }));
+    const today = attendance[todayISO()] || {};
+    const others = students
+      .filter((s) => s.active && today[s.id] === "Absent" && !flagged.some((f) => f.id === s.id))
+      .map((s) => ({ id: s.id, name: s.name, cls: s.cls, sec: s.sec, absentLast7: 1, absentLast30: 1, dates: [formatDate(todayISO())], needsFollowup: false }));
+    return [...flagged, ...others];
   },
 
   async listIssues() { return issues.slice(); },

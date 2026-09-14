@@ -125,11 +125,17 @@ export const liveApi = {
   },
 
   async listFollowup() {
-    const rows = unwrap(await supabase.from("followup_students").select("*").order("absent_last_7", { ascending: false }));
+    const rows = unwrap(
+      await supabase.from("followup_students").select("*")
+        .order("needs_followup", { ascending: false })
+        .order("absent_last_7", { ascending: false })
+        .order("absent_last_30", { ascending: false })
+    );
     return rows.map((r) => ({
       id: r.id, name: r.name, cls: r.class, sec: r.section,
       absentLast7: Number(r.absent_last_7), absentLast30: Number(r.absent_last_30),
       dates: (r.absent_dates || []).slice(0, 5).map(formatDate),
+      needsFollowup: Boolean(r.needs_followup),
     }));
   },
 
@@ -165,7 +171,7 @@ export const liveApi = {
     const [students, present, followup, issues] = await Promise.all([
       supabase.from("students").select("id", { count: "exact", head: true }).eq("active", true),
       supabase.from("attendance").select("id", { count: "exact", head: true }).eq("date", today).eq("status", "Present"),
-      supabase.from("followup_students").select("id", { count: "exact", head: true }),
+      supabase.from("followup_students").select("id", { count: "exact", head: true }).eq("needs_followup", true),
       supabase.from("issues").select("id", { count: "exact", head: true }).neq("status", "Resolved"),
     ]);
     [students, present, followup, issues].forEach((r) => { if (r.error) throw r.error; });

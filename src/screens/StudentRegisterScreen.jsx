@@ -2,15 +2,14 @@ import { useState } from "react";
 import { MapPin, Pencil, Phone, Plus } from "lucide-react";
 import { BackLink, BigButton, Card, ErrorNote, Loading, SelectInput, StatusPill, TextInput, Toggle } from "../components/ui.jsx";
 import { COLORS, fieldStyle } from "../theme.js";
-import { CLASSES, SECTIONS } from "../data/dummy.js";
 import { api } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage } from "../lib/shared.js";
 
-const EMPTY = { name: "", adm: "", cls: "Class 1", sec: "A", guardian: "", phone: "", village: "", consent: false, active: true, fee: "Pending" };
+const emptyStudent = (school) => ({ name: "", adm: "", cls: school.classes[0] || "", sec: school.sections[0] || "", guardian: "", phone: "", village: "", consent: false, active: true, fee: "Pending" });
 
-function StudentForm({ initial, onSaved, onCancel }) {
-  const [form, setForm] = useState(initial || EMPTY);
+function StudentForm({ initial, onSaved, onCancel, school }) {
+  const [form, setForm] = useState(initial || emptyStudent(school));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -35,8 +34,8 @@ function StudentForm({ initial, onSaved, onCancel }) {
         <TextInput id="st-name" label="Student name" required value={form.name} onChange={set("name")} />
         <TextInput id="st-adm" label="Admission number" required placeholder="e.g. SUPS-108" value={form.adm} onChange={set("adm")} />
         <div className="grid grid-cols-2 gap-2">
-          <SelectInput id="st-cls" label="Class" options={CLASSES} value={form.cls} onChange={set("cls")} />
-          <SelectInput id="st-sec" label="Section" options={SECTIONS.map((s) => [s, `Section ${s}`])} value={form.sec} onChange={set("sec")} />
+          <SelectInput id="st-cls" label="Class" options={school.classes} value={form.cls} onChange={set("cls")} />
+          <SelectInput id="st-sec" label="Section" options={school.sections.map((s) => [s, `Section ${s}`])} value={form.sec} onChange={set("sec")} />
         </div>
         <TextInput id="st-guardian" label="Guardian name" value={form.guardian} onChange={set("guardian")} />
         <TextInput id="st-phone" label="Guardian phone" type="tel" inputMode="numeric" placeholder="10 digits" value={form.phone} onChange={set("phone")} />
@@ -82,7 +81,8 @@ function StudentDetail({ student: s, onBack, onEdit }) {
   );
 }
 
-export default function StudentRegisterScreen() {
+export default function StudentRegisterScreen({ user }) {
+  const CLASSES = user.school.classes;
   const [filterCls, setFilterCls] = useState("All");
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null); // null | "new" | student
@@ -92,6 +92,7 @@ export default function StudentRegisterScreen() {
     return (
       <div className="p-4 space-y-3">
         <StudentForm
+          school={user.school}
           initial={editing === "new" ? null : editing}
           onCancel={() => setEditing(null)}
           onSaved={(saved) => { setEditing(null); setSelected(saved); reload(); }}

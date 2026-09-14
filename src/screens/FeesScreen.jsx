@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Card, ErrorNote, Loading, StatusPill } from "../components/ui.jsx";
 import { COLORS, fieldStyle } from "../theme.js";
-import { CLASSES } from "../data/dummy.js";
 import { api } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage } from "../lib/shared.js";
 
-export default function FeesScreen() {
+export default function FeesScreen({ user }) {
+  const CLASSES = user.school.classes;
   const [filterCls, setFilterCls] = useState("All");
   const { loading, data, error, reload } = useAsync(() => api.listStudents());
   const list = (data || []).filter((s) => s.active && (filterCls === "All" || s.cls === filterCls));

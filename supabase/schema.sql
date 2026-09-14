@@ -127,8 +127,10 @@ begin
 end;
 $$;
 
--- Students who need a follow-up: 3+ absences in the last 7 days, or 7+ in the last 30.
-create or replace view public.followup_students
+-- Absence counts for every active student over the last 30 days.
+-- needs_followup is true for 3+ absences in the last 7 days, or 7+ in the last 30.
+drop view if exists public.followup_students;
+create view public.followup_students
 with (security_invoker = true) as
 select
   s.id,
@@ -138,14 +140,14 @@ select
   s.section,
   count(*) filter (where a.status = 'Absent' and a.date >= current_date - 6)  as absent_last_7,
   count(*) filter (where a.status = 'Absent' and a.date >= current_date - 29) as absent_last_30,
-  array_remove(array_agg(a.date order by a.date desc) filter (where a.status = 'Absent'), null) as absent_dates
+  array_remove(array_agg(a.date order by a.date desc) filter (where a.status = 'Absent'), null) as absent_dates,
+  (count(*) filter (where a.status = 'Absent' and a.date >= current_date - 6)  >= 3
+   or count(*) filter (where a.status = 'Absent' and a.date >= current_date - 29) >= 7) as needs_followup
 from public.students s
 left join public.attendance a
   on a.student_id = s.id and a.date >= current_date - 29
 where s.active
-group by s.id
-having count(*) filter (where a.status = 'Absent' and a.date >= current_date - 6)  >= 3
-    or count(*) filter (where a.status = 'Absent' and a.date >= current_date - 29) >= 7;
+group by s.id;
 
 -- ---------- Row-level security: each school sees only its own data --------
 

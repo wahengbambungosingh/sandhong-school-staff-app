@@ -8,6 +8,11 @@ import LoginScreen from "./screens/LoginScreen.jsx";
 import OnboardingScreen from "./screens/OnboardingScreen.jsx";
 import SetPasswordScreen from "./screens/SetPasswordScreen.jsx";
 import StaffScreen from "./screens/StaffScreen.jsx";
+import EnquiriesScreen from "./screens/EnquiriesScreen.jsx";
+import CorrectionsScreen from "./screens/CorrectionsScreen.jsx";
+import EnquiryScreen from "./screens/EnquiryScreen.jsx";
+import ParentApp from "./parent/ParentApp.jsx";
+import ParentLogin from "./parent/ParentLogin.jsx";
 import { PrincipalDashboard, TeacherDashboard } from "./screens/Dashboards.jsx";
 import StudentRegisterScreen from "./screens/StudentRegisterScreen.jsx";
 import SchoolSetupScreen from "./screens/SchoolSetupScreen.jsx";
@@ -34,13 +39,19 @@ const SCREENS = {
   issues: { title: "School Issues", Component: IssuesScreen },
   fees: { title: "Fees Status", Component: FeesScreen },
   reports: { title: "Reports", Component: ReportsScreen },
+  enquiries: { title: "Admission Enquiries", Component: EnquiriesScreen },
+  corrections: { title: "Parent Requests", Component: CorrectionsScreen },
 };
+
+const ENQUIRY_SCHOOL = new URLSearchParams(window.location.search).get("enquiry");
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(!IS_LIVE);
   const [screen, setScreen] = useState("dashboard");
+  const [parentMode, setParentMode] = useState(() => { try { return localStorage.getItem("entry") === "parent"; } catch { return false; } });
   const lastUserId = useRef(null);
+  const chooseEntry = (mode) => { setParentMode(mode === "parent"); try { localStorage.setItem("entry", mode); } catch { /* ignore */ } };
 
   useEffect(() => {
     let active = true;
@@ -58,7 +69,9 @@ export default function App() {
   if (!ready) {
     return <div className="min-h-screen max-w-md mx-auto" style={{ background: COLORS.bg }}><Loading label="Starting…" /></div>;
   }
-  if (!user) return <LoginScreen />;
+  if (ENQUIRY_SCHOOL) return <EnquiryScreen schoolId={ENQUIRY_SCHOOL} />;
+  if (!user) return parentMode ? <ParentLogin onBack={() => chooseEntry("staff")} /> : <LoginScreen onParent={() => chooseEntry("parent")} />;
+  if (user.kind === "parent") return <ParentApp user={user} />;
   if (user.needsNewPassword) return <SetPasswordScreen email={user.email} />;
   if (user.needsSchool) return <OnboardingScreen email={user.email} />;
 

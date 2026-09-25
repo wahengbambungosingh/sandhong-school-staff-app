@@ -1,6 +1,6 @@
 import {
   AlertTriangle, BookOpen, CalendarCheck, ClipboardList, Copy, FileText, IndianRupee,
-  MessageCircle, Settings, UserCog, Users, UsersRound, Wrench,
+  MessageCircle, MessageSquareWarning, Settings, UserCog, UserPlus, Users, UsersRound, Wrench,
 } from "lucide-react";
 import { BigButton, Card, ErrorNote, Tile } from "../components/ui.jsx";
 import { COLORS } from "../theme.js";
@@ -60,6 +60,8 @@ export function PrincipalDashboard({ nav, user }) {
         <Tile icon={ClipboardList} label="Assessments & Marks" onClick={() => nav("assessments")} />
         <Tile icon={Wrench} label="School Issues" onClick={() => nav("issues")} badge={data?.openIssues || undefined} />
         <Tile icon={FileText} label="Reports" onClick={() => nav("reports")} />
+        <Tile icon={UserPlus} label="Admission Enquiries" onClick={() => nav("enquiries")} />
+        <Tile icon={MessageSquareWarning} label="Parent Requests" onClick={() => nav("corrections")} />
       </div>
     </div>
   );

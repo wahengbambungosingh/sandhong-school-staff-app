@@ -40,7 +40,13 @@ export function TabButtons({ tabs, value, onChange }) {
   );
 }
 
-function DemoLogin() {
+function ParentLink({ onParent }) {
+  return (
+    <button type="button" onClick={onParent} className="w-full text-sm font-semibold py-2 mt-1" style={{ color: COLORS.header }}>I am a parent</button>
+  );
+}
+
+function DemoLogin({ onParent }) {
   const [role, setRole] = useState("Teacher");
   return (
     <AuthShell title="Sandhong Upper Primary School" subtitle="Staff App">
@@ -59,12 +65,13 @@ function DemoLogin() {
         </div>
         <BigButton type="submit">Continue as {role}</BigButton>
         <p className="text-xs text-center mt-3 text-gray-500">Demo only. Nothing you enter is saved.</p>
+        <ParentLink onParent={onParent} />
       </form>
     </AuthShell>
   );
 }
 
-function LiveLogin() {
+function LiveLogin({ onParent }) {
   const [mode, setMode] = useState("signin"); // signin | signup | forgot
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -125,11 +132,12 @@ function LiveLogin() {
         {mode === "signup" && (
           <p className="text-xs text-center text-gray-500">After creating your account you will set up your school or join one with a code from your principal.</p>
         )}
+        <ParentLink onParent={onParent} />
       </form>
     </AuthShell>
   );
 }
 
-export default function LoginScreen() {
-  return IS_LIVE ? <LiveLogin /> : <DemoLogin />;
+export default function LoginScreen({ onParent }) {
+  return IS_LIVE ? <LiveLogin onParent={onParent} /> : <DemoLogin onParent={onParent} />;
 }

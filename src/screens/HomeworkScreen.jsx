@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { FileText, Plus, Trash2 } from "lucide-react";
 import { BigButton, Card, ErrorNote, Loading, SelectInput, TextInput } from "../components/ui.jsx";
+import FilePicker from "../components/FilePicker.jsx";
 import { COLORS, fieldClass, fieldStyle } from "../theme.js";
 import { api } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
@@ -11,6 +12,8 @@ export default function HomeworkScreen({ user }) {
   const [showForm, setShowForm] = useState(false);
   const [filterCls, setFilterCls] = useState("All");
   const [form, setForm] = useState({ cls: classes[0] || "", sec: sections[0] || "", subject: subjects[0] || "", text: "", due: "" });
+  const [file, setFile] = useState(null);
+  const [viewImage, setViewImage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { loading, data, error: loadError, reload } = useAsync(() => api.listHomework());
@@ -19,7 +22,7 @@ export default function HomeworkScreen({ user }) {
   async function submit(e) {
     e.preventDefault();
     setBusy(true); setError("");
-    try { await api.addHomework(form); setForm({ ...form, text: "", due: "" }); setShowForm(false); reload(); }
+    try { await api.addHomework({ ...form, file }); setForm({ ...form, text: "", due: "" }); setFile(null); setShowForm(false); reload(); }
     catch (err) { setError(errorMessage(err)); } finally { setBusy(false); }
   }
   async function remove(h) {
@@ -28,6 +31,15 @@ export default function HomeworkScreen({ user }) {
   }
 
   const list = (data || []).filter((h) => filterCls === "All" || h.cls === filterCls);
+
+  if (viewImage) {
+    return (
+      <div className="p-4 space-y-3">
+        <button onClick={() => setViewImage(null)} className="text-sm font-semibold" style={{ color: COLORS.header }}>‹ Back to homework</button>
+        <img src={viewImage} alt="Homework attachment" className="w-full rounded-2xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-3">
@@ -45,8 +57,9 @@ export default function HomeworkScreen({ user }) {
               <textarea id="hw-text" required placeholder="What should the students do?" value={form.text} onChange={set("text")} className={`w-full ${fieldClass} h-24`} style={fieldStyle} />
             </label>
             <TextInput id="hw-due" label="Due date (optional)" type="date" min={todayISO()} value={form.due} onChange={set("due")} />
+            <FilePicker idPrefix="hw-file" label="Attach a worksheet photo or PDF (optional)" value={file} onChange={setFile} />
             <ErrorNote message={error} />
-            <BigButton type="submit" disabled={busy}>{busy ? "Saving…" : "Save homework"}</BigButton>
+            <BigButton type="submit" disabled={busy}>{busy ? (file ? "Uploading…" : "Saving…") : "Save homework"}</BigButton>
           </Card>
         </form>
       )}
@@ -67,6 +80,16 @@ export default function HomeworkScreen({ user }) {
             </div>
           </div>
           <p className="text-sm mt-1 text-gray-700 whitespace-pre-wrap">{h.text}</p>
+          {h.attachment && h.attachment.type === "application/pdf" && (
+            <a href={h.attachment.url} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold" style={{ background: COLORS.card, color: COLORS.header }}>
+              <FileText size={16} /> <span className="truncate">{h.attachment.name}</span>
+            </a>
+          )}
+          {h.attachment && h.attachment.type !== "application/pdf" && (
+            <button type="button" onClick={() => setViewImage(h.attachment.url)} className="block mt-2 w-full">
+              <img src={h.attachment.url} alt="" className="w-full h-40 object-cover rounded-xl" loading="lazy" />
+            </button>
+          )}
           {h.by && <p className="text-[11px] text-gray-400 mt-1">Set by {h.by}</p>}
         </Card>
       ))}

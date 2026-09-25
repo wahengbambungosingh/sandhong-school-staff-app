@@ -19,7 +19,7 @@ const staff = [
 const assignments = TEACHERS.flatMap((t) => t.assignments.map((a) => ({ id: nid(), profileId: `t${t.id}`, teacherName: t.name, cls: a.cls, sec: a.sec, subject: a.subject })));
 const nameToId = (name) => students.find((s) => s.name === name)?.id;
 const contactLogs = CONTACT_LOG.map((c) => ({ id: String(c.id), studentId: nameToId(c.student), studentName: c.student, type: c.type, outcome: c.outcome, note: c.note, date: c.date, by: "Anitha Rao" }));
-const homework = HOMEWORK.map((h) => ({ id: String(h.id), cls: h.cls, sec: h.sec, subject: h.subject, text: h.text, due: h.due, by: "Anitha Rao" }));
+const homework = HOMEWORK.map((h) => ({ id: String(h.id), cls: h.cls, sec: h.sec, subject: h.subject, text: h.text, due: h.due, by: "Anitha Rao", attachment: null }));
 const assessments = ASSESSMENTS.map((a) => ({ id: String(a.id), title: a.title, cls: a.cls, sec: a.sec, subject: a.title.split("— ")[1] || "", date: a.date, max: a.max }));
 const marks = Object.fromEntries(ASSESSMENTS.map((a) => [String(a.id), Object.fromEntries(Object.entries(a.marks).map(([name, m]) => [nameToId(name), String(m)]))]));
 
@@ -87,7 +87,9 @@ export const demoApi = {
   },
 
   async listHomework() { return homework.slice(); },
-  async addHomework({ cls, sec, subject, text, due }) { homework.unshift({ id: nid(), cls, sec, subject, text, due: due ? formatDate(due) : "", by: "You" }); },
+  async addHomework({ cls, sec, subject, text, due, file }) {
+    homework.unshift({ id: nid(), cls, sec, subject, text, due: due ? formatDate(due) : "", by: "You", attachment: file ? { url: file.url, name: file.name, type: file.type } : null });
+  },
   async removeHomework(id) { const i = homework.findIndex((h) => h.id === id); if (i >= 0) homework.splice(i, 1); },
 
   async listAssessments() { return assessments.slice(); },

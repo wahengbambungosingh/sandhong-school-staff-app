@@ -69,7 +69,9 @@ screen emails a reset link that returns to the app.
   7 days or 7+ in 30 days
 - Parent Contact Log per student: call and WhatsApp buttons (WhatsApp only
   with consent), logged contacts with type, outcome and note
-- Homework by class, section and subject with due date
+- Homework by class, section and subject with due date and an optional
+  attachment (photo from camera or gallery, or a PDF up to 10 MB), stored
+  in a private Supabase Storage bucket
 - Assessments & Marks: create an assessment, enter marks per student,
   marks under 40% highlighted
 - School Issues: report with category, priority and an optional photo

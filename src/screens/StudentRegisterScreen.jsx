@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { MapPin, Pencil, Phone, Plus } from "lucide-react";
+import { Copy, MapPin, Pencil, Phone, Plus, RefreshCw, Share2 } from "lucide-react";
 import { BackLink, BigButton, Card, ErrorNote, Loading, SelectInput, StatusPill, TextInput, Toggle } from "../components/ui.jsx";
 import { COLORS, fieldStyle } from "../theme.js";
-import { api } from "../lib/api.js";
+import { api, IS_LIVE } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage } from "../lib/shared.js";
 
@@ -51,7 +51,37 @@ function StudentForm({ initial, onSaved, onCancel, school }) {
   );
 }
 
-function StudentDetail({ student: s, onBack, onEdit }) {
+function ParentCodeCard({ student: s, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const appLink = `${window.location.origin}${window.location.pathname}`;
+  const text = `Parent access for ${s.name}\nOpen ${appLink} , tap "I am a parent", enter your mobile number and this child code: ${s.parentCode}`;
+  function share() {
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else window.open(`https://wa.me/${s.phone ? "91" + s.phone.replace(/\D/g, "").slice(-10) : ""}?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  }
+  async function renew() {
+    if (!window.confirm("Make a new parent code? The old code stops working. Parents already linked stay linked.")) return;
+    setBusy(true); setError("");
+    try { await onChanged(await api.regenerateParentCode(s.id)); } catch (err) { setError(errorMessage(err)); } finally { setBusy(false); }
+  }
+  if (!s.parentCode) return null;
+  return (
+    <Card>
+      <p className="text-xs text-gray-500 font-semibold">Parent code</p>
+      <p className="text-2xl font-bold tracking-widest" style={{ color: COLORS.header }}>{s.parentCode}</p>
+      <div className="flex gap-2 mt-2">
+        <button onClick={() => navigator.clipboard?.writeText(s.parentCode)} className="flex items-center gap-1 text-xs font-bold rounded-xl px-3 py-2" style={{ background: COLORS.card, color: COLORS.header }} aria-label="Copy parent code"><Copy size={14} /> Copy</button>
+        <button onClick={share} className="flex items-center gap-1 text-xs font-bold rounded-xl px-3 py-2" style={{ background: COLORS.card, color: COLORS.header }} aria-label="Share parent code"><Share2 size={14} /> Share</button>
+        <button onClick={renew} disabled={busy} className="flex items-center gap-1 text-xs font-bold rounded-xl px-3 py-2" style={{ background: COLORS.card, color: COLORS.header }} aria-label="New parent code"><RefreshCw size={14} /> New</button>
+      </div>
+      <ErrorNote message={error} />
+      <p className="text-[11px] text-gray-400 mt-1">Give this to the guardian. They open the app, tap "I am a parent", and enter their mobile number{s.phone ? ` (must be ${s.phone})` : ""} with this code.{IS_LIVE ? "" : " Demo: KID00001."}</p>
+    </Card>
+  );
+}
+
+function StudentDetail({ student: s, onBack, onEdit, onCodeChanged }) {
   return (
     <div className="p-4 space-y-3">
       <BackLink onClick={onBack}>Back to list</BackLink>
@@ -77,6 +107,7 @@ function StudentDetail({ student: s, onBack, onEdit }) {
         <p className="text-sm">Fees: <StatusPill status={s.fee} /></p>
         <p className="text-sm">Status: <span className={`font-semibold ${s.active ? "text-green-700" : "text-gray-500"}`}>{s.active ? "Active" : "Inactive"}</span></p>
       </Card>
+      <ParentCodeCard student={s} onChanged={onCodeChanged} />
     </div>
   );
 }
@@ -101,7 +132,7 @@ export default function StudentRegisterScreen({ user }) {
     );
   }
   if (selected) {
-    return <StudentDetail student={selected} onBack={() => setSelected(null)} onEdit={() => setEditing(selected)} />;
+    return <StudentDetail student={selected} onBack={() => setSelected(null)} onEdit={() => setEditing(selected)} onCodeChanged={(code) => { setSelected({ ...selected, parentCode: code }); reload(); }} />;
   }
 
   const list = (students || [])

@@ -37,16 +37,33 @@ Other scripts:
 | `npm run preview` | Serve the production build locally        |
 | `npm run lint`    | ESLint over the source                    |
 
+## Parents
+
+Parents tap **I am a parent** on the sign-in screen and enter their mobile
+number plus a **child code** (shown on the student's page in the Student
+Register, with Copy / Share / New). The number must match the guardian phone
+on file. Parents sign in anonymously (enable **Allow anonymous sign-ins**
+under Authentication → Providers in Supabase) and can only read their own
+children: today's status, attendance by month, homework for the child's
+class, marks, fees, and the child's details, plus a "request a correction"
+form that lands in the staff **Parent Requests** screen.
+
+A public **admission enquiry** form (no login) is available at
+`?enquiry=<school id>`; the link is shown on the staff **Admission
+Enquiries** screen with Copy / Share.
+
 ## One-time database setup
 
 1. Create a project at https://supabase.com.
 2. Open **SQL Editor → New query**, paste the contents of
    `supabase/schema.sql`, and click **Run**. Safe to run again later.
-3. Under **Authentication → URL Configuration**, set **Site URL** to the
+3. Under **Authentication → Providers**, turn on **Allow anonymous
+   sign-ins** (needed for parent access).
+4. Under **Authentication → URL Configuration**, set **Site URL** to the
    address where the app is published and add the same address under
    **Redirect URLs**. Email confirmation links then return people to the
    app, signed in. Keep "Confirm email" on under Providers → Email.
-4. Put the project's URL and `anon` key in `src/config.js` (or in a
+5. Put the project's URL and `anon` key in `src/config.js` (or in a
    `.env` file, see `.env.example`).
 
 The first person to create an account sets up the school and becomes

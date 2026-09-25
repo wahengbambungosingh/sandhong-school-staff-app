@@ -18,7 +18,7 @@ function unwrap({ data, error }) {
 const rowToStudent = (r) => ({
   id: r.id, name: r.name, adm: r.admission_no, cls: r.class, sec: r.section,
   guardian: r.guardian_name || "", phone: r.guardian_phone || "", village: r.village || "",
-  consent: r.whatsapp_consent, active: r.active, fee: r.fee_status,
+  consent: r.whatsapp_consent, active: r.active, fee: r.fee_status, parentCode: r.parent_code || "",
 });
 const studentToRow = (s) => ({
   name: s.name.trim(), admission_no: s.adm.trim(), class: s.cls, section: s.sec,
@@ -26,9 +26,28 @@ const studentToRow = (s) => ({
   whatsapp_consent: Boolean(s.consent), active: s.active !== false, fee_status: s.fee || "Pending",
 });
 
+const childFromRow = (r) => ({
+  id: r.id, name: r.name, adm: r.admission_no, cls: r.class, sec: r.section,
+  guardian: r.guardian_name || "", phone: r.guardian_phone || "", village: r.village || "",
+  consent: r.whatsapp_consent, active: r.active, fee: r.fee_status,
+  schoolId: r.school_id, schoolName: r.school?.name || "",
+});
+
+async function loadParent(session) {
+  const rows = unwrap(await supabase.from("students").select("*, school:schools(name)").order("name"));
+  cachedUser = {
+    kind: "parent",
+    id: session.user.id,
+    children: rows.map(childFromRow),
+    needsNewPassword: false,
+  };
+  return cachedUser;
+}
+
 async function loadUser() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { cachedUser = null; return null; }
+  if (session.user.is_anonymous) return loadParent(session);
   const profile = unwrap(
     await supabase
       .from("profiles")
@@ -38,6 +57,7 @@ async function loadUser() {
   );
   const sc = profile?.school;
   cachedUser = {
+    kind: "staff",
     id: session.user.id,
     email: session.user.email,
     fullName: profile?.full_name || "",
@@ -95,6 +115,86 @@ export const liveApi = {
     unwrap(await supabase.rpc("join_school", { code, full_name: fullName }));
     await loadUser(); notify();
   },
+
+  // ----- parents -----
+  async signInParent(phone, code) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) unwrap(await supabase.auth.signInAnonymously());
+    unwrap(await supabase.rpc("link_child", { code, phone }));
+    await loadUser(); notify();
+  },
+  async addChild(phone, code) {
+    unwrap(await supabase.rpc("link_child", { code, phone }));
+    await loadUser(); notify();
+  },
+  async removeChild(studentId) {
+    unwrap(await supabase.from("parent_links").delete().eq("student_id", studentId));
+    await loadUser(); notify();
+  },
+  async getChildAttendance(studentId, fromDate, toDate) {
+    const rows = unwrap(await supabase.from("attendance").select("date, status").eq("student_id", studentId).gte("date", fromDate).lte("date", toDate));
+    return Object.fromEntries(rows.map((r) => [r.date, r.status]));
+  },
+  async listChildHomework(child) {
+    const rows = unwrap(await supabase.from("homework").select("id, class, section, subject, text, due_date, attachment_path, attachment_name, attachment_type")
+      .eq("school_id", child.schoolId).eq("class", child.cls).eq("section", child.sec).order("created_at", { ascending: false }).limit(50));
+    const paths = rows.map((r) => r.attachment_path).filter(Boolean);
+    const urls = {};
+    if (paths.length) {
+      const { data } = await supabase.storage.from(HW_BUCKET).createSignedUrls(paths, 60 * 60);
+      (data || []).forEach((d, i) => { if (d.signedUrl) urls[paths[i]] = d.signedUrl; });
+    }
+    return rows.map((r) => ({
+      id: r.id, cls: r.class, sec: r.section, subject: r.subject, text: r.text, due: r.due_date ? formatDate(r.due_date) : "",
+      attachment: r.attachment_path && urls[r.attachment_path] ? { url: urls[r.attachment_path], name: r.attachment_name || "Attachment", type: r.attachment_type || "" } : null,
+    }));
+  },
+  async listChildMarks(child) {
+    const [assessments, marks] = await Promise.all([
+      supabase.from("assessments").select("id, title, subject, date, max_marks").eq("school_id", child.schoolId).eq("class", child.cls).eq("section", child.sec).order("date", { ascending: false }),
+      supabase.from("marks").select("assessment_id, marks").eq("student_id", child.id),
+    ]);
+    if (assessments.error) throw assessments.error;
+    if (marks.error) throw marks.error;
+    const byAssessment = Object.fromEntries(marks.data.map((m) => [m.assessment_id, m.marks]));
+    return assessments.data.map((a) => ({
+      id: a.id, title: a.title, subject: a.subject, date: formatDate(a.date), max: Number(a.max_marks),
+      mark: byAssessment[a.id] == null ? null : Number(byAssessment[a.id]),
+    }));
+  },
+  async submitCorrection(child, message) {
+    unwrap(await supabase.from("correction_requests").insert({ school_id: child.schoolId, student_id: child.id, user_id: cachedUser.id, message: message.trim() }));
+  },
+  async listMyCorrections() {
+    const rows = unwrap(await supabase.from("correction_requests").select("id, student_id, message, status, created_at").order("created_at", { ascending: false }));
+    return rows.map((r) => ({ id: r.id, studentId: r.student_id, message: r.message, status: r.status, date: formatDate(r.created_at.slice(0, 10)) }));
+  },
+
+  // ----- public admission enquiry (no login) -----
+  async getEnquirySchoolName(schoolId) {
+    return unwrap(await supabase.rpc("school_name_for_enquiry", { p_school: schoolId }));
+  },
+  async submitEnquiry(schoolId, f) {
+    unwrap(await supabase.from("admission_enquiries").insert({
+      school_id: schoolId, child_name: f.childName.trim(), child_age: f.childAge?.trim() || null, class_wanted: f.classWanted?.trim() || null,
+      parent_name: f.parentName.trim(), phone: f.phone.trim(), note: f.note?.trim() || null,
+    }));
+  },
+
+  // ----- staff: parent codes, corrections, enquiries -----
+  async regenerateParentCode(studentId) {
+    return unwrap(await supabase.rpc("regenerate_parent_code", { student: studentId }));
+  },
+  async listCorrections() {
+    const rows = unwrap(await supabase.from("correction_requests").select("id, message, status, created_at, student:students(name, class, section)").order("status").order("created_at", { ascending: false }));
+    return rows.map((r) => ({ id: r.id, message: r.message, status: r.status, date: formatDate(r.created_at.slice(0, 10)), studentName: r.student?.name || "", cls: r.student?.class || "", sec: r.student?.section || "" }));
+  },
+  async setCorrectionStatus(id, status) { unwrap(await supabase.from("correction_requests").update({ status }).eq("id", id)); },
+  async listEnquiries() {
+    const rows = unwrap(await supabase.from("admission_enquiries").select("*").order("created_at", { ascending: false }));
+    return rows.map((r) => ({ id: r.id, childName: r.child_name, childAge: r.child_age || "", classWanted: r.class_wanted || "", parentName: r.parent_name, phone: r.phone, note: r.note || "", status: r.status, date: formatDate(r.created_at.slice(0, 10)) }));
+  },
+  async setEnquiryStatus(id, status) { unwrap(await supabase.from("admission_enquiries").update({ status }).eq("id", id)); },
 
   // ----- school setup -----
   async updateSchoolSettings({ academicYear, classes, sections, subjects }) {

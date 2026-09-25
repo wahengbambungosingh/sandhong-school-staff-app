@@ -542,3 +542,283 @@ drop policy if exists homework_files_delete on storage.objects;
 create policy homework_files_delete on storage.objects
   for delete to authenticated
   using (bucket_id = 'homework-files' and (storage.foldername(name))[1] = public.current_school_id()::text);
+
+-- =============================================================================
+-- Stage 3: parent access (read-only), correction requests, admission enquiries
+--
+-- Parents sign in anonymously (enable "Allow anonymous sign-ins" under
+-- Authentication → Providers in the Supabase dashboard) and link each child
+-- with the child's parent code plus the guardian phone number on file.
+-- =============================================================================
+
+-- ---------- Parent codes on students ---------------------------------------
+
+alter table public.students add column if not exists parent_code text;
+update public.students set parent_code = upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8)) where parent_code is null;
+alter table public.students alter column parent_code set default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8));
+alter table public.students alter column parent_code set not null;
+create unique index if not exists students_parent_code_idx on public.students (parent_code);
+
+-- ---------- Parent ↔ child links -------------------------------------------
+
+create table if not exists public.parent_links (
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  student_id  uuid not null references public.students (id) on delete cascade,
+  phone       text,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, student_id)
+);
+alter table public.parent_links enable row level security;
+
+drop policy if exists parent_links_own on public.parent_links;
+create policy parent_links_own on public.parent_links
+  for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists parent_links_delete_own on public.parent_links;
+create policy parent_links_delete_own on public.parent_links
+  for delete to authenticated using (user_id = auth.uid());
+
+grant select, delete on public.parent_links to authenticated;
+
+create or replace function public.is_parent_of(student uuid)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.parent_links where user_id = auth.uid() and student_id = student);
+$$;
+
+-- Class/section pairs (per school) of the caller's linked children.
+create or replace function public.parent_has_class(p_school uuid, p_class text, p_section text)
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.parent_links l
+    join public.students s on s.id = l.student_id
+    where l.user_id = auth.uid() and s.school_id = p_school and s.class = p_class and s.section = p_section
+  );
+$$;
+
+-- Parent links a child: code must match, and the phone must match the
+-- guardian phone on file when the school has recorded one.
+create or replace function public.link_child(code text, phone text)
+returns uuid
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  st public.students%rowtype;
+  digits text := right(regexp_replace(coalesce(phone, ''), '\D', '', 'g'), 10);
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.';
+  end if;
+  if exists (select 1 from public.profiles where id = auth.uid()) then
+    raise exception 'Staff accounts cannot be used as parent accounts.';
+  end if;
+  if length(digits) < 10 then
+    raise exception 'Please enter a 10-digit mobile number.';
+  end if;
+  select * into st from public.students where parent_code = upper(trim(code));
+  if st.id is null then
+    raise exception 'That child code was not found. Check it with the school.';
+  end if;
+  if st.guardian_phone is not null and right(regexp_replace(st.guardian_phone, '\D', '', 'g'), 10) <> digits then
+    raise exception 'That phone number does not match the guardian number the school has on file.';
+  end if;
+  insert into public.parent_links (user_id, student_id, phone) values (auth.uid(), st.id, digits)
+    on conflict (user_id, student_id) do nothing;
+  return st.id;
+end;
+$$;
+
+-- Staff issues a new parent code for a student (old code stops working,
+-- existing parent links stay).
+create or replace function public.regenerate_parent_code(student uuid)
+returns text
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  new_code text := upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8));
+begin
+  if public.current_school_id() is null then
+    raise exception 'Only school staff can do this.';
+  end if;
+  update public.students set parent_code = new_code where id = student and school_id = public.current_school_id();
+  if not found then
+    raise exception 'Student not found in your school.';
+  end if;
+  return new_code;
+end;
+$$;
+
+revoke execute on function public.link_child(text, text) from anon;
+revoke execute on function public.regenerate_parent_code(uuid) from anon;
+grant execute on function public.link_child(text, text) to authenticated;
+grant execute on function public.regenerate_parent_code(uuid) to authenticated;
+grant execute on function public.is_parent_of(uuid) to authenticated;
+grant execute on function public.parent_has_class(uuid, text, text) to authenticated;
+
+-- Parents (anonymous accounts) must not create or join schools.
+create or replace function public.create_school(school_name text, full_name text)
+returns uuid
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  new_school uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.';
+  end if;
+  if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+    raise exception 'Parent accounts cannot set up a school.';
+  end if;
+  if exists (select 1 from public.profiles where id = auth.uid()) then
+    raise exception 'This account already belongs to a school.';
+  end if;
+  if length(trim(school_name)) < 2 then
+    raise exception 'Please enter the school name.';
+  end if;
+  insert into public.schools (name) values (trim(school_name)) returning id into new_school;
+  insert into public.profiles (id, school_id, full_name, role, email)
+    values (auth.uid(), new_school, trim(full_name), 'principal', auth.jwt() ->> 'email');
+  return new_school;
+end;
+$$;
+
+create or replace function public.join_school(code text, full_name text)
+returns uuid
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  target uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.';
+  end if;
+  if coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+    raise exception 'Parent accounts cannot join a school as staff.';
+  end if;
+  if exists (select 1 from public.profiles where id = auth.uid()) then
+    raise exception 'This account already belongs to a school.';
+  end if;
+  select id into target from public.schools where join_code = upper(trim(code));
+  if target is null then
+    raise exception 'That join code was not found. Check it with your principal.';
+  end if;
+  insert into public.profiles (id, school_id, full_name, role, email)
+    values (auth.uid(), target, trim(full_name), 'teacher', auth.jwt() ->> 'email');
+  return target;
+end;
+$$;
+
+-- ---------- What parents may read --------------------------------------------
+
+drop policy if exists students_parent_select on public.students;
+create policy students_parent_select on public.students
+  for select to authenticated using (public.is_parent_of(id));
+
+drop policy if exists schools_parent_select on public.schools;
+create policy schools_parent_select on public.schools
+  for select to authenticated
+  using (exists (select 1 from public.parent_links l join public.students s on s.id = l.student_id
+                 where l.user_id = auth.uid() and s.school_id = schools.id));
+
+drop policy if exists attendance_parent_select on public.attendance;
+create policy attendance_parent_select on public.attendance
+  for select to authenticated using (public.is_parent_of(student_id));
+
+drop policy if exists homework_parent_select on public.homework;
+create policy homework_parent_select on public.homework
+  for select to authenticated using (public.parent_has_class(school_id, class, section));
+
+drop policy if exists assessments_parent_select on public.assessments;
+create policy assessments_parent_select on public.assessments
+  for select to authenticated using (public.parent_has_class(school_id, class, section));
+
+drop policy if exists marks_parent_select on public.marks;
+create policy marks_parent_select on public.marks
+  for select to authenticated using (public.is_parent_of(student_id));
+
+drop policy if exists homework_files_parent_select on storage.objects;
+create policy homework_files_parent_select on storage.objects
+  for select to authenticated
+  using (bucket_id = 'homework-files' and exists (
+    select 1 from public.parent_links l join public.students s on s.id = l.student_id
+    where l.user_id = auth.uid() and s.school_id::text = (storage.foldername(objects.name))[1]));
+
+-- ---------- Correction requests from parents ---------------------------------
+
+create table if not exists public.correction_requests (
+  id          uuid primary key default gen_random_uuid(),
+  school_id   uuid not null references public.schools (id) on delete cascade,
+  student_id  uuid not null references public.students (id) on delete cascade,
+  user_id     uuid references auth.users (id) on delete set null,
+  message     text not null,
+  status      text not null default 'New' check (status in ('New', 'Done')),
+  created_at  timestamptz not null default now()
+);
+create index if not exists correction_requests_school_idx on public.correction_requests (school_id, status, created_at desc);
+alter table public.correction_requests enable row level security;
+
+drop policy if exists correction_requests_parent_insert on public.correction_requests;
+create policy correction_requests_parent_insert on public.correction_requests
+  for insert to authenticated with check (public.is_parent_of(student_id) and user_id = auth.uid());
+
+drop policy if exists correction_requests_parent_select on public.correction_requests;
+create policy correction_requests_parent_select on public.correction_requests
+  for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists correction_requests_staff on public.correction_requests;
+create policy correction_requests_staff on public.correction_requests
+  for all to authenticated
+  using (school_id = public.current_school_id())
+  with check (school_id = public.current_school_id());
+
+grant select, insert, update, delete on public.correction_requests to authenticated;
+
+-- ---------- Admission enquiries (public form, no login) ----------------------
+
+create table if not exists public.admission_enquiries (
+  id            uuid primary key default gen_random_uuid(),
+  school_id     uuid not null references public.schools (id) on delete cascade,
+  child_name    text not null,
+  child_age     text,
+  class_wanted  text,
+  parent_name   text not null,
+  phone         text not null,
+  note          text,
+  status        text not null default 'New' check (status in ('New', 'Called', 'Admitted', 'Closed')),
+  created_at    timestamptz not null default now()
+);
+create index if not exists admission_enquiries_school_idx on public.admission_enquiries (school_id, status, created_at desc);
+alter table public.admission_enquiries enable row level security;
+
+drop policy if exists admission_enquiries_public_insert on public.admission_enquiries;
+create policy admission_enquiries_public_insert on public.admission_enquiries
+  for insert to anon, authenticated
+  with check (length(trim(child_name)) >= 2 and length(regexp_replace(phone, '\D', '', 'g')) >= 10);
+
+drop policy if exists admission_enquiries_staff on public.admission_enquiries;
+create policy admission_enquiries_staff on public.admission_enquiries
+  for all to authenticated
+  using (school_id = public.current_school_id())
+  with check (school_id = public.current_school_id());
+
+grant insert on public.admission_enquiries to anon;
+grant select, insert, update, delete on public.admission_enquiries to authenticated;
+
+-- The public enquiry form only needs the school's name for the given id.
+create or replace function public.school_name_for_enquiry(p_school uuid)
+returns text
+language sql stable security definer
+set search_path = public
+as $$
+  select name from public.schools where id = p_school;
+$$;
+grant execute on function public.school_name_for_enquiry(uuid) to anon, authenticated;

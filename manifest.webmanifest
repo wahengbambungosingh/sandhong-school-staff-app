@@ -1,0 +1,14 @@
+{
+  "name": "Sandhong UPS Staff App",
+  "short_name": "Sandhong Staff",
+  "description": "Staff app for Sandhong Upper Primary School (Phase 1 demo)",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1F4B3F",
+  "theme_color": "#1F4B3F",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

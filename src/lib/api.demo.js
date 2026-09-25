@@ -90,6 +90,7 @@ export const demoApi = {
   async addHomework({ cls, sec, subject, text, due, file }) {
     homework.unshift({ id: nid(), cls, sec, subject, text, due: due ? formatDate(due) : "", by: "You", attachment: file ? { url: file.url, name: file.name, type: file.type } : null });
   },
+  async getHomeworkShareUrl(h) { return h.attachment?.url || null; },
   async removeHomework(id) { const i = homework.findIndex((h) => h.id === id); if (i >= 0) homework.splice(i, 1); },
 
   async listAssessments() { return assessments.slice(); },

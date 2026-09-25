@@ -195,8 +195,14 @@ export const liveApi = {
     }
     return rows.map((r) => ({
       id: r.id, cls: r.class, sec: r.section, subject: r.subject, text: r.text, due: r.due_date ? formatDate(r.due_date) : "", by: r.by?.full_name || "",
-      attachment: r.attachment_path && urls[r.attachment_path] ? { url: urls[r.attachment_path], name: r.attachment_name || "Attachment", type: r.attachment_type || "" } : null,
+      attachment: r.attachment_path && urls[r.attachment_path] ? { url: urls[r.attachment_path], name: r.attachment_name || "Attachment", type: r.attachment_type || "", path: r.attachment_path } : null,
     }));
+  },
+  /** A link to a homework attachment that parents can open for 7 days. */
+  async getHomeworkShareUrl(h) {
+    if (!h.attachment?.path) return null;
+    const data = unwrap(await supabase.storage.from(HW_BUCKET).createSignedUrl(h.attachment.path, 7 * 24 * 60 * 60));
+    return data?.signedUrl || null;
   },
   async addHomework({ cls, sec, subject, text, due, file }) {
     let attachment = {};

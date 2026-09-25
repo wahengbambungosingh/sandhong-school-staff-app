@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { FileText, Plus, Trash2 } from "lucide-react";
+import { FileText, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { BigButton, Card, ErrorNote, Loading, SelectInput, TextInput } from "../components/ui.jsx";
 import FilePicker from "../components/FilePicker.jsx";
 import { COLORS, fieldClass, fieldStyle } from "../theme.js";
 import { api } from "../lib/api.js";
 import { useAsync } from "../lib/useAsync.js";
 import { errorMessage, todayISO } from "../lib/shared.js";
+import { shareHomework } from "../lib/share.js";
 
 export default function HomeworkScreen({ user }) {
   const { classes, sections, subjects } = user.school;
@@ -14,6 +15,7 @@ export default function HomeworkScreen({ user }) {
   const [form, setForm] = useState({ cls: classes[0] || "", sec: sections[0] || "", subject: subjects[0] || "", text: "", due: "" });
   const [file, setFile] = useState(null);
   const [viewImage, setViewImage] = useState(null);
+  const [sharing, setSharing] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { loading, data, error: loadError, reload } = useAsync(() => api.listHomework());
@@ -24,6 +26,12 @@ export default function HomeworkScreen({ user }) {
     setBusy(true); setError("");
     try { await api.addHomework({ ...form, file }); setForm({ ...form, text: "", due: "" }); setFile(null); setShowForm(false); reload(); }
     catch (err) { setError(errorMessage(err)); } finally { setBusy(false); }
+  }
+  async function share(h) {
+    setSharing(h.id); setError("");
+    try { await shareHomework(h, user.school.name, (x) => api.getHomeworkShareUrl(x)); }
+    catch (err) { setError(errorMessage(err)); }
+    finally { setSharing(null); }
   }
   async function remove(h) {
     if (!window.confirm("Delete this homework?")) return;
@@ -68,6 +76,7 @@ export default function HomeworkScreen({ user }) {
         {classes.map((c) => <option key={c}>{c}</option>)}
       </select>
       <ErrorNote message={loadError && errorMessage(loadError)} onRetry={reload} />
+      {!showForm && <ErrorNote message={error} />}
       {loading && <Loading />}
       {!loading && list.length === 0 && <p className="text-sm text-gray-500 px-1">No homework set yet.</p>}
       {list.map((h) => (
@@ -90,7 +99,13 @@ export default function HomeworkScreen({ user }) {
               <img src={h.attachment.url} alt="" className="w-full h-40 object-cover rounded-xl" loading="lazy" />
             </button>
           )}
-          {h.by && <p className="text-[11px] text-gray-400 mt-1">Set by {h.by}</p>}
+          <div className="flex items-center justify-between mt-3 gap-2">
+            {h.by ? <p className="text-[11px] text-gray-400">Set by {h.by}</p> : <span />}
+            <button type="button" onClick={() => share(h)} disabled={sharing === h.id}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold text-white disabled:opacity-60" style={{ background: "#1F6B3B" }}>
+              <MessageCircle size={16} /> {sharing === h.id ? "Preparing…" : "Share on WhatsApp"}
+            </button>
+          </div>
         </Card>
       ))}
     </div>

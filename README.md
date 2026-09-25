@@ -71,7 +71,10 @@ screen emails a reset link that returns to the app.
   with consent), logged contacts with type, outcome and note
 - Homework by class, section and subject with due date and an optional
   attachment (photo from camera or gallery, or a PDF up to 10 MB), stored
-  in a private Supabase Storage bucket
+  in a private Supabase Storage bucket. "Share on WhatsApp" opens the
+  phone's share sheet with the message and the file attached; the teacher
+  picks the chat. Where file sharing isn't supported, WhatsApp opens with
+  the text and a 7-day link instead. Nothing is sent automatically.
 - Assessments & Marks: create an assessment, enter marks per student,
   marks under 40% highlighted
 - School Issues: report with category, priority and an optional photo

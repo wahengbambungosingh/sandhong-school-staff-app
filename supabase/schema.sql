@@ -515,3 +515,30 @@ create policy marks_all on public.marks
 
 grant select, insert, update, delete on public.assessments to authenticated;
 grant select, insert, update, delete on public.marks to authenticated;
+
+-- =============================================================================
+-- Stage 2c: homework attachments (photo or PDF)
+-- =============================================================================
+
+alter table public.homework add column if not exists attachment_path text;
+alter table public.homework add column if not exists attachment_name text;
+alter table public.homework add column if not exists attachment_type text;
+
+insert into storage.buckets (id, name, public)
+  values ('homework-files', 'homework-files', false)
+  on conflict (id) do nothing;
+
+drop policy if exists homework_files_select on storage.objects;
+create policy homework_files_select on storage.objects
+  for select to authenticated
+  using (bucket_id = 'homework-files' and (storage.foldername(name))[1] = public.current_school_id()::text);
+
+drop policy if exists homework_files_insert on storage.objects;
+create policy homework_files_insert on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'homework-files' and (storage.foldername(name))[1] = public.current_school_id()::text);
+
+drop policy if exists homework_files_delete on storage.objects;
+create policy homework_files_delete on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'homework-files' and (storage.foldername(name))[1] = public.current_school_id()::text);

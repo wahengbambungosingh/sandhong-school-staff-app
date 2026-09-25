@@ -4,6 +4,7 @@ import { supabase } from "./supabase.js";
 import { formatDate } from "./shared.js";
 
 const BUCKET = "issue-photos";
+const HW_BUCKET = "homework-files";
 let cachedUser = null;
 let recoveryPending = false;
 const userListeners = new Set();
@@ -185,13 +186,33 @@ export const liveApi = {
 
   // ----- homework -----
   async listHomework() {
-    const rows = unwrap(await supabase.from("homework").select("id, class, section, subject, text, due_date, by:profiles(full_name)").order("created_at", { ascending: false }).limit(100));
-    return rows.map((r) => ({ id: r.id, cls: r.class, sec: r.section, subject: r.subject, text: r.text, due: r.due_date ? formatDate(r.due_date) : "", by: r.by?.full_name || "" }));
+    const rows = unwrap(await supabase.from("homework").select("id, class, section, subject, text, due_date, attachment_path, attachment_name, attachment_type, by:profiles(full_name)").order("created_at", { ascending: false }).limit(100));
+    const paths = rows.map((r) => r.attachment_path).filter(Boolean);
+    const urls = {};
+    if (paths.length) {
+      const { data } = await supabase.storage.from(HW_BUCKET).createSignedUrls(paths, 60 * 60);
+      (data || []).forEach((d, i) => { if (d.signedUrl) urls[paths[i]] = d.signedUrl; });
+    }
+    return rows.map((r) => ({
+      id: r.id, cls: r.class, sec: r.section, subject: r.subject, text: r.text, due: r.due_date ? formatDate(r.due_date) : "", by: r.by?.full_name || "",
+      attachment: r.attachment_path && urls[r.attachment_path] ? { url: urls[r.attachment_path], name: r.attachment_name || "Attachment", type: r.attachment_type || "" } : null,
+    }));
   },
-  async addHomework({ cls, sec, subject, text, due }) {
-    unwrap(await supabase.from("homework").insert({ school_id: schoolId(), class: cls, section: sec, subject, text: text.trim(), due_date: due || null, set_by: cachedUser.id }));
+  async addHomework({ cls, sec, subject, text, due, file }) {
+    let attachment = {};
+    if (file) {
+      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const path = `${schoolId()}/${crypto.randomUUID()}.${ext}`;
+      unwrap(await supabase.storage.from(HW_BUCKET).upload(path, file.blob, { contentType: file.type, upsert: false }));
+      attachment = { attachment_path: path, attachment_name: file.name, attachment_type: file.type };
+    }
+    unwrap(await supabase.from("homework").insert({ school_id: schoolId(), class: cls, section: sec, subject, text: text.trim(), due_date: due || null, set_by: cachedUser.id, ...attachment }));
   },
-  async removeHomework(id) { unwrap(await supabase.from("homework").delete().eq("id", id)); },
+  async removeHomework(id) {
+    const row = unwrap(await supabase.from("homework").select("attachment_path").eq("id", id).maybeSingle());
+    unwrap(await supabase.from("homework").delete().eq("id", id));
+    if (row?.attachment_path) await supabase.storage.from(HW_BUCKET).remove([row.attachment_path]).catch(() => {});
+  },
 
   // ----- assessments and marks -----
   async listAssessments() {
